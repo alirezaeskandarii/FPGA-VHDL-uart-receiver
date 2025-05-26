@@ -1,96 +1,94 @@
 # FPGA-VHDL-uart-receiver
 # The VHDL code designed for uart receiver with buad rate = 9600 and cpu clock = 50 MHz is below:
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
 -- Company: 
 -- Engineer: Alireza Eskandari
+-- 
+-- Create Date:    16:55:30 04/11/2025 
+-- Design Name: 
+-- Module Name:    uart_rx - Behavioral 
+-- Project Name: 
+-- Target Devices: xc6slx16-2ftg256
+-- Tool versions: 
+-- Description: 
 --
--- Create Date:   18:40:22 04/12/2025
--- Design Name:   
--- Module Name:   D:/fpga/Projects/P14_uart_rx/uart_rx_tb.vhd
--- Project Name:  P14_uart_rx
--- Target Device:  xc6slx16-2ftg256
--- Tool versions:  
--- Description:   
--- 
--- VHDL Test Bench Created by ISE for module: uart_rx
--- 
--- Dependencies:
--- 
--- Revision:
+-- Dependencies: 
+--
+-- Revision: 
 -- Revision 0.01 - File Created
--- Additional Comments:
+-- Additional Comments: 
 --
--- Notes: 
--- This testbench has been automatically generated using types std_logic and
--- std_logic_vector for the ports of the unit under test.  Xilinx recommends
--- that these types always be used for the top-level I/O of a design in order
--- to guarantee that the testbench will bind correctly to the post-implementation 
--- simulation model.
---------------------------------------------------------------------------------
-LIBRARY ieee;
-USE ieee.std_logic_1164.ALL;
- 
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
- 
-ENTITY uart_rx_tb IS
-END uart_rx_tb;
- 
-ARCHITECTURE behavior OF uart_rx_tb IS 
- 
-    -- Component Declaration for the Unit Under Test (UUT)
- 
-    COMPONENT uart_rx
-    PORT(
-         clk : IN  std_logic;
-         rx : IN  std_logic;
-         dout : OUT  std_logic_vector(7 downto 0);
-         valid : OUT  std_logic
-        );
-    END COMPONENT;
-    
+--use IEEE.NUMERIC_STD.ALL;
 
-   --Inputs
-   signal clk : std_logic := '0';
-   signal rx : std_logic := '0';
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx primitives in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
 
- 	--Outputs
-   signal dout : std_logic_vector(7 downto 0);
-   signal valid : std_logic;
+entity uart_rx is
+    Port ( clk : in  STD_LOGIC;
+           rx : in  STD_LOGIC;
+           dout : out  STD_LOGIC_VECTOR (7 downto 0);
+           valid : out  STD_LOGIC);
+end uart_rx;
 
-   -- Clock period definitions
-   constant clk_period : time := 20 ns;
-	constant data: std_logic_vector(7 downto 0) := x"9B";
-BEGIN
- 
-	-- Instantiate the Unit Under Test (UUT)
-   uut: uart_rx PORT MAP (
-          clk => clk,
-          rx => rx,
-          dout => dout,
-          valid => valid
-        );
+architecture Behavioral of uart_rx is
+signal cnt:integer range 0 to 7811;
+signal i: integer range 0 to 7;
+type state_type is (idle, start, data, stop);
+signal state:state_type:=idle;
+signal buff:std_logic_vector(7 downto 0);
+begin
+process(clk)
+	begin
+		if(rising_edge(clk)) then
+			valid <= '0';
+			case state is
+				when idle=>
+					if(rx='0') then
+						state <= start;
+						cnt <=0;
+					end if;
+				when start=>
+					cnt <= cnt+1;
+					if(cnt=7811)then
+						cnt <=0;
+						i <= 0;
+						state <= data;
+					end if;
+				when data=>
+					if(cnt=0)then
+						buff(i)<=rx;
+					end if;
+					cnt<=cnt+1;
+					if(cnt=5207)then
+						cnt <= 0;
+						i<=i+1;
+						if(i = 7) then
+							state <= stop;
+						end if;
+					end if;
+				when stop=>
+					cnt<=cnt+1;
+					if(cnt=5207)then
+						cnt<=0;
+						state <= idle;
+						valid <='1';
+						dout <=buff;
+					end if;
+			end case;		
+		end if;
+end process;
 
-   -- Clock process definitions
-   clk_process :process
-   begin
-		clk <= '0';
-		wait for clk_period/2;
-		clk <= '1';
-		wait for clk_period/2;
-   end process;
- 
+end Behavioral;
 
-   -- Stimulus process
-   stim_proc: process
-   begin		
-	rx <= '1'; wait for 104.16 us; --idle
-	rx <= '0'; wait for 140.16 us; --start
-     for i in 0 to 7 loop
-			rx <= data(i); --data
-			wait for 104.16 us;
-	  end loop;
+
 	  rx <= '1'; wait for 104.16 us; --stop
       wait;
    end process;
